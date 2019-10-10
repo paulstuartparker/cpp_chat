@@ -26,14 +26,23 @@ class ChatRoom {
     }
 };
 
-ChatRoom chat = ChatRoom();
+class ChatConnection {
+  public:
+    int socketdesc;
+    ChatRoom* chat;
 
-void stream_messages(int socketdesc) {
+  ChatConnection(int socketdesc_, ChatRoom* chat_) {
+    socketdesc = socketdesc_;
+    chat = chat_;
+  }
+};
+
+void stream_messages(ChatConnection connection) {
   while (true) {
     char buffer[1024] = {0};
-    int valread = read(socketdesc, buffer, 1024);
+    int valread = read(connection.socketdesc, buffer, 1024);
     printf("%s\n", buffer);
-    chat.broadcast_message(buffer, socketdesc);
+    connection.chat->broadcast_message(buffer, connection.socketdesc);
   }
 }
 
@@ -73,6 +82,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<std::thread> connections;
+  ChatRoom chat = ChatRoom();
 
   while (true) {
     int new_socket = accept(socket_descriptor, (struct sockaddr *)&address, (socklen_t*)&addrlen);
@@ -83,8 +93,8 @@ int main(int argc, char** argv) {
     }
 
     chat.sockets.push_back(new_socket);
-
-    std::thread stream(stream_messages, new_socket);
+    ChatConnection conn(new_socket, &chat);
+    std::thread stream(stream_messages, conn);
     connections.push_back(std::move(stream));
   }
 
